@@ -106,9 +106,33 @@ class ArticlesController extends Controller
 	 * @param  Article $article
 	 * @param  array   $tags
 	 */
-	private function syncTags(Article $article, array $tags)
+	private function syncTags(Article $article, $tags)
 	{
-		$article->tags()->sync($tags);
+		$tagSync = $this->integrityCheckTags($tags);
+		$article->tags()->sync((array) $tagSync);
+	}
+
+	/**
+	 * Check if tags exisit, if not then create them
+	 *
+	 * @param  $tags
+	 * @return array
+	 */
+	private function integrityCheckTags($tags)
+	{
+
+		// extract the input into separate numeric and string arrays
+		$currentTags = array_filter($tags, 'is_numeric');		// ["1", "3", "5"]
+		$newTags = array_diff($tags, $currentTags);	// ["awesome", "cool"]
+
+		// Create a new tag for each string in the input and update the current tags array
+		foreach ($newTags as $newTag)
+		{
+		  if ($tag = Tag::create(['name' => $newTag]))
+		    $currentTags[] = $tag->id;
+		}
+
+		return $currentTags;
 	}
 
 	/**
@@ -120,7 +144,8 @@ class ArticlesController extends Controller
 	{
 		$article = Auth::user()->articles()->create($request->all());
 
-		$this->syncTags($article, $request->input('tag_list'));
+		if(null !== $request->input('tag_list'))
+			$this->syncTags($article, $request->input('tag_list'));
 
 		return $article;
 	}
